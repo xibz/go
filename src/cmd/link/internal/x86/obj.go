@@ -35,17 +35,9 @@ import (
 	"cmd/internal/sys"
 	"cmd/link/internal/ld"
 	"fmt"
-	"log"
 )
 
-// Reading object files.
-
-func Main() {
-	linkarchinit()
-	ld.Main()
-}
-
-func linkarchinit() {
+func Init() {
 	ld.SysArch = sys.Arch386
 
 	ld.Thearch.Funcalign = FuncAlign
@@ -79,38 +71,6 @@ func linkarchinit() {
 }
 
 func archinit(ctxt *ld.Link) {
-	// getgoextlinkenabled is based on GO_EXTLINK_ENABLED when
-	// Go was built; see ../../make.bash.
-	if ld.Linkmode == ld.LinkAuto && obj.Getgoextlinkenabled() == "0" {
-		ld.Linkmode = ld.LinkInternal
-	}
-
-	if (ld.Buildmode == ld.BuildmodeCArchive && ld.Iself) || ld.Buildmode == ld.BuildmodeCShared || ld.Buildmode == ld.BuildmodePIE || ctxt.DynlinkingGo() {
-		ld.Linkmode = ld.LinkExternal
-		got := ld.Linklookup(ctxt, "_GLOBAL_OFFSET_TABLE_", 0)
-		got.Type = obj.SDYNIMPORT
-		got.Attr |= ld.AttrReachable
-	}
-
-	switch ld.Headtype {
-	default:
-		if ld.Linkmode == ld.LinkAuto {
-			ld.Linkmode = ld.LinkInternal
-		}
-		if ld.Linkmode == ld.LinkExternal && obj.Getgoextlinkenabled() != "1" {
-			log.Fatalf("cannot use -linkmode=external with -H %v", ld.Headtype)
-		}
-
-	case obj.Hdarwin,
-		obj.Hfreebsd,
-		obj.Hlinux,
-		obj.Hnetbsd,
-		obj.Hopenbsd,
-		obj.Hwindows,
-		obj.Hwindowsgui:
-		break
-	}
-
 	switch ld.Headtype {
 	default:
 		ld.Exitf("unknown -H option: %v", ld.Headtype)

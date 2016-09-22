@@ -34,19 +34,20 @@ package ld
 import (
 	"cmd/internal/obj"
 	"cmd/internal/sys"
-	"fmt"
 	"log"
 )
 
 func linknew(arch *sys.Arch) *Link {
 	ctxt := &Link{
-		Hash: []map[string]*Symbol{
-			// preallocate about 2mb for hash of
-			// non static symbols
-			make(map[string]*Symbol, 100000),
+		Syms: &Symbols{
+			hash: []map[string]*Symbol{
+				// preallocate about 2mb for hash of
+				// non static symbols
+				make(map[string]*Symbol, 100000),
+			},
+			Allsym: make([]*Symbol, 0, 100000),
 		},
-		Allsym: make([]*Symbol, 0, 100000),
-		Arch:   arch,
+		Arch: arch,
 	}
 
 	if obj.GOARCH != arch.Name {
@@ -130,128 +131,4 @@ func (ctxt *Link) computeTLSOffset() {
 		}
 	}
 
-}
-
-func linknewsym(ctxt *Link, name string, v int) *Symbol {
-	batch := ctxt.SymbolBatch
-	if len(batch) == 0 {
-		batch = make([]Symbol, 1000)
-	}
-	s := &batch[0]
-	ctxt.SymbolBatch = batch[1:]
-
-	s.Dynid = -1
-	s.Plt = -1
-	s.Got = -1
-	s.Name = name
-	s.Version = int16(v)
-	ctxt.Allsym = append(ctxt.Allsym, s)
-
-	return s
-}
-
-func Linklookup(ctxt *Link, name string, v int) *Symbol {
-	m := ctxt.Hash[v]
-	s := m[name]
-	if s != nil {
-		return s
-	}
-	s = linknewsym(ctxt, name, v)
-	s.Extname = s.Name
-	m[name] = s
-	return s
-}
-
-// read-only lookup
-func Linkrlookup(ctxt *Link, name string, v int) *Symbol {
-	return ctxt.Hash[v][name]
-}
-
-// A BuildMode indicates the sort of object we are building:
-//   "exe": build a main package and everything it imports into an executable.
-//   "c-shared": build a main package, plus all packages that it imports, into a
-//     single C shared library. The only callable symbols will be those functions
-//     marked as exported.
-//   "shared": combine all packages passed on the command line, and their
-//     dependencies, into a single shared library that will be used when
-//     building with the -linkshared option.
-type BuildMode uint8
-
-const (
-	BuildmodeUnset BuildMode = iota
-	BuildmodeExe
-	BuildmodePIE
-	BuildmodeCArchive
-	BuildmodeCShared
-	BuildmodeShared
-)
-
-func (mode *BuildMode) Set(s string) error {
-	badmode := func() error {
-		return fmt.Errorf("buildmode %s not supported on %s/%s", s, obj.GOOS, obj.GOARCH)
-	}
-	switch s {
-	default:
-		return fmt.Errorf("invalid buildmode: %q", s)
-	case "exe":
-		*mode = BuildmodeExe
-	case "pie":
-		switch obj.GOOS {
-		case "android", "linux":
-		default:
-			return badmode()
-		}
-		*mode = BuildmodePIE
-	case "c-archive":
-		switch obj.GOOS {
-		case "darwin", "linux":
-		case "windows":
-			switch obj.GOARCH {
-			case "amd64", "386":
-			default:
-				return badmode()
-			}
-		default:
-			return badmode()
-		}
-		*mode = BuildmodeCArchive
-	case "c-shared":
-		switch obj.GOARCH {
-		case "386", "amd64", "arm", "arm64":
-		default:
-			return badmode()
-		}
-		*mode = BuildmodeCShared
-	case "shared":
-		switch obj.GOOS {
-		case "linux":
-			switch obj.GOARCH {
-			case "386", "amd64", "arm", "arm64", "ppc64le", "s390x":
-			default:
-				return badmode()
-			}
-		default:
-			return badmode()
-		}
-		*mode = BuildmodeShared
-	}
-	return nil
-}
-
-func (mode *BuildMode) String() string {
-	switch *mode {
-	case BuildmodeUnset:
-		return "" // avoid showing a default in usage message
-	case BuildmodeExe:
-		return "exe"
-	case BuildmodePIE:
-		return "pie"
-	case BuildmodeCArchive:
-		return "c-archive"
-	case BuildmodeCShared:
-		return "c-shared"
-	case BuildmodeShared:
-		return "shared"
-	}
-	return fmt.Sprintf("BuildMode(%d)", uint8(*mode))
 }

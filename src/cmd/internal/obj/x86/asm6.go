@@ -1148,7 +1148,6 @@ var optab =
 	{AFXSAVE, ysvrs, Pm, [23]uint8{0xae, 00, 0xae, 00}},
 	{AFXRSTOR64, ysvrs, Pw, [23]uint8{0x0f, 0xae, 01, 0x0f, 0xae, 01}},
 	{AFXSAVE64, ysvrs, Pw, [23]uint8{0x0f, 0xae, 00, 0x0f, 0xae, 00}},
-	{obj.AGLOBL, nil, 0, [23]uint8{}},
 	{AHLT, ynone, Px, [23]uint8{0xf4}},
 	{AIDIVB, ydivb, Pb, [23]uint8{0xf6, 07}},
 	{AIDIVL, ydivl, Px, [23]uint8{0xf7, 07}},
@@ -1743,7 +1742,6 @@ var optab =
 	{obj.ATYPE, nil, 0, [23]uint8{}},
 	{obj.AFUNCDATA, yfuncdata, Px, [23]uint8{0, 0}},
 	{obj.APCDATA, ypcdata, Px, [23]uint8{0, 0}},
-	{obj.ACHECKNIL, nil, 0, [23]uint8{}},
 	{obj.AVARDEF, nil, 0, [23]uint8{}},
 	{obj.AVARKILL, nil, 0, [23]uint8{}},
 	{obj.ADUFFCOPY, yduff, Px, [23]uint8{0xe8}},
@@ -2771,7 +2769,7 @@ func vaddr(ctxt *obj.Link, p *obj.Prog, a *obj.Addr, r *obj.Reloc) int64 {
 			log.Fatalf("reloc")
 		}
 
-		if !ctxt.Flag_shared || isAndroid {
+		if !ctxt.Flag_shared || isAndroid || ctxt.Headtype == obj.Hdarwin {
 			r.Type = obj.R_TLS_LE
 			r.Siz = 4
 			r.Off = -1 // caller must fill in

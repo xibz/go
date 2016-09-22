@@ -49,7 +49,7 @@ var debugtab = []struct {
 }{
 	{"append", &Debug_append},         // print information about append compilation
 	{"closure", &Debug_closure},       // print information about closure compilation
-	{"disablenil", &Disable_checknil}, // disable nil checks
+	{"disablenil", &disable_checknil}, // disable nil checks
 	{"gcprog", &Debug_gcprog},         // print dump of GC programs
 	{"nil", &Debug_checknil},          // print information about nil checks
 	{"panic", &Debug_panic},           // do not hide any compiler panic
@@ -106,7 +106,7 @@ func Main() {
 	defer hidePanic()
 
 	Ctxt = obj.Linknew(Thearch.LinkArch)
-	Ctxt.DiagFunc = Yyerror
+	Ctxt.DiagFunc = yyerror
 	Ctxt.Bso = bufio.NewWriter(os.Stdout)
 
 	localpkg = mkpkg("")
@@ -208,7 +208,6 @@ func Main() {
 	flag.StringVar(&cpuprofile, "cpuprofile", "", "write cpu profile to `file`")
 	flag.StringVar(&memprofile, "memprofile", "", "write memory profile to `file`")
 	flag.Int64Var(&memprofilerate, "memprofilerate", 0, "set runtime.MemProfileRate to `rate`")
-	flag.BoolVar(&ssaEnabled, "ssa", true, "use SSA backend to generate code")
 	flag.StringVar(&benchfile, "bench", "", "append benchmark times to `file`")
 	obj.Flagparse(usage)
 
@@ -292,7 +291,6 @@ func Main() {
 		Debug['l'] = 1 - Debug['l']
 	}
 
-	Thearch.Betypeinit()
 	Widthint = Thearch.LinkArch.IntSize
 	Widthptr = Thearch.LinkArch.PtrSize
 	Widthreg = Thearch.LinkArch.RegSize
@@ -507,7 +505,7 @@ func Main() {
 		errorexit()
 	}
 
-	Flusherrors()
+	flusherrors()
 	timings.Stop()
 
 	if benchfile != "" {
@@ -632,7 +630,7 @@ func findpkg(name string) (file string, ok bool) {
 	// don't want to see "encoding/../encoding/base64"
 	// as different from "encoding/base64".
 	if q := path.Clean(name); q != name {
-		Yyerror("non-canonical import path %q (should be %q)", name, q)
+		yyerror("non-canonical import path %q (should be %q)", name, q)
 		return "", false
 	}
 
@@ -699,12 +697,12 @@ func importfile(f *Val, indent []byte) {
 
 	path_, ok := f.U.(string)
 	if !ok {
-		Yyerror("import statement not a string")
+		yyerror("import statement not a string")
 		return
 	}
 
 	if len(path_) == 0 {
-		Yyerror("import path is empty")
+		yyerror("import path is empty")
 		return
 	}
 
@@ -717,12 +715,12 @@ func importfile(f *Val, indent []byte) {
 	// the main package, just as we reserve the import
 	// path "math" to identify the standard math package.
 	if path_ == "main" {
-		Yyerror("cannot import \"main\"")
+		yyerror("cannot import \"main\"")
 		errorexit()
 	}
 
 	if myimportpath != "" && path_ == myimportpath {
-		Yyerror("import %q while compiling that package (import cycle)", path_)
+		yyerror("import %q while compiling that package (import cycle)", path_)
 		errorexit()
 	}
 
@@ -732,7 +730,7 @@ func importfile(f *Val, indent []byte) {
 
 	if path_ == "unsafe" {
 		if safemode {
-			Yyerror("cannot import package unsafe")
+			yyerror("cannot import package unsafe")
 			errorexit()
 		}
 
@@ -743,7 +741,7 @@ func importfile(f *Val, indent []byte) {
 
 	if islocalname(path_) {
 		if path_[0] == '/' {
-			Yyerror("import path cannot be absolute path")
+			yyerror("import path cannot be absolute path")
 			return
 		}
 
@@ -760,7 +758,7 @@ func importfile(f *Val, indent []byte) {
 
 	file, found := findpkg(path_)
 	if !found {
-		Yyerror("can't find import: %q", path_)
+		yyerror("can't find import: %q", path_)
 		errorexit()
 	}
 
@@ -774,7 +772,7 @@ func importfile(f *Val, indent []byte) {
 
 	impf, err := os.Open(file)
 	if err != nil {
-		Yyerror("can't open import: %q: %v", path_, err)
+		yyerror("can't open import: %q: %v", path_, err)
 		errorexit()
 	}
 	defer impf.Close()
@@ -782,7 +780,7 @@ func importfile(f *Val, indent []byte) {
 
 	if strings.HasSuffix(file, ".a") {
 		if !skiptopkgdef(imp) {
-			Yyerror("import %s: not a package file", file)
+			yyerror("import %s: not a package file", file)
 			errorexit()
 		}
 	}
@@ -798,13 +796,13 @@ func importfile(f *Val, indent []byte) {
 
 	if p != "empty archive" {
 		if !strings.HasPrefix(p, "go object ") {
-			Yyerror("import %s: not a go object file: %s", file, p)
+			yyerror("import %s: not a go object file: %s", file, p)
 			errorexit()
 		}
 
 		q := fmt.Sprintf("%s %s %s %s", obj.GOOS, obj.GOARCH, obj.Version, obj.Expstring())
 		if p[10:] != q {
-			Yyerror("import %s: object is [%s] expected [%s]", file, p[10:], q)
+			yyerror("import %s: object is [%s] expected [%s]", file, p[10:], q)
 			errorexit()
 		}
 	}
@@ -825,7 +823,7 @@ func importfile(f *Val, indent []byte) {
 		}
 	}
 	if safemode && !safe {
-		Yyerror("cannot import unsafe package %q", importpkg.Path)
+		yyerror("cannot import unsafe package %q", importpkg.Path)
 	}
 
 	// assume files move (get installed)
@@ -858,7 +856,7 @@ func importfile(f *Val, indent []byte) {
 
 	switch c {
 	case '\n':
-		Yyerror("cannot import %s: old export format no longer supported (recompile library)", path_)
+		yyerror("cannot import %s: old export format no longer supported (recompile library)", path_)
 
 	case 'B':
 		if Debug_export != 0 {
@@ -868,7 +866,7 @@ func importfile(f *Val, indent []byte) {
 		Import(imp)
 
 	default:
-		Yyerror("no import in %q", path_)
+		yyerror("no import in %q", path_)
 		errorexit()
 	}
 }
@@ -894,12 +892,12 @@ func pkgnotused(lineno int32, path string, name string) {
 func mkpackage(pkgname string) {
 	if localpkg.Name == "" {
 		if pkgname == "_" {
-			Yyerror("invalid package name _")
+			yyerror("invalid package name _")
 		}
 		localpkg.Name = pkgname
 	} else {
 		if pkgname != localpkg.Name {
-			Yyerror("package %s; expected %s", pkgname, localpkg.Name)
+			yyerror("package %s; expected %s", pkgname, localpkg.Name)
 		}
 		for _, s := range localpkg.Syms {
 			if s.Def == nil {

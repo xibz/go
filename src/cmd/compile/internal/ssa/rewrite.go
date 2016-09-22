@@ -189,6 +189,7 @@ func nto(x int64) int64 {
 }
 
 // log2 returns logarithm in base of uint64(n), with log2(0) = -1.
+// Rounds down.
 func log2(n int64) (l int64) {
 	l = -1
 	x := uint64(n)
@@ -352,6 +353,15 @@ found:
 func clobber(v *Value) bool {
 	v.reset(OpInvalid)
 	// Note: leave v.Block intact.  The Block field is used after clobber.
+	return true
+}
+
+// noteRule is an easy way to track if a rule is matched when writing
+// new ones.  Make the rule of interest also conditional on
+//     noteRule("note to self: rule of interest matched")
+// and that message will print when the rule matches.
+func noteRule(s string) bool {
+	println(s)
 	return true
 }
 

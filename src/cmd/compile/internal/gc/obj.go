@@ -53,7 +53,7 @@ func dumpobj1(outfile string, mode int) {
 	var err error
 	bout, err = bio.Create(outfile)
 	if err != nil {
-		Flusherrors()
+		flusherrors()
 		fmt.Printf("can't create %s: %v\n", outfile, err)
 		errorexit()
 	}
@@ -147,7 +147,6 @@ func dumpobj1(outfile string, mode int) {
 		ggloblsym(zero, int32(zerosize), obj.DUPOK|obj.RODATA)
 	}
 
-	dumpdata()
 	obj.Writeobjdirect(Ctxt, bout.Writer)
 
 	if writearchive {
@@ -349,22 +348,12 @@ func slicebytes(nam *Node, s string, len int) {
 	duintxx(nam.Sym, off, uint64(len), Widthint)
 }
 
-func Datastring(s string, a *obj.Addr) {
-	_, symdata := stringsym(s)
-	a.Type = obj.TYPE_MEM
-	a.Name = obj.NAME_EXTERN
-	a.Sym = symdata
-	a.Offset = 0
-	a.Etype = uint8(Simtype[TINT])
-}
-
 func datagostring(sval string, a *obj.Addr) {
 	symhdr, _ := stringsym(sval)
 	a.Type = obj.TYPE_MEM
 	a.Name = obj.NAME_EXTERN
 	a.Sym = symhdr
 	a.Offset = 0
-	a.Etype = uint8(TSTRING)
 }
 
 func dsname(s *Sym, off int, t string) int {

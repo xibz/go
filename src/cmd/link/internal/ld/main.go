@@ -37,6 +37,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -47,6 +48,7 @@ var (
 )
 
 func init() {
+	flag.Var(&Linkmode, "linkmode", "set link `mode`")
 	flag.Var(&Buildmode, "buildmode", "set build `mode`")
 	flag.Var(&Headtype, "H", "set header `type`")
 	flag.Var(&rpath, "r", "set the ELF dynamic linker search `path` to dir1:dir2:...")
@@ -58,7 +60,6 @@ var (
 
 	flagOutfile    = flag.String("o", "", "write output to `file`")
 	FlagLinkshared = flag.Bool("linkshared", false, "link against installed Go shared libraries")
-	Buildmode      BuildMode
 
 	flagInstallSuffix = flag.String("installsuffix", "", "set package directory `suffix`")
 	flagDumpDep       = flag.Bool("dumpdep", false, "dump symbol dependency graph")
@@ -119,7 +120,6 @@ func Main() {
 	obj.Flagfn0("V", "print version and exit", doversion)
 	obj.Flagfn1("X", "add string value `definition` of the form importpath.name=value", func(s string) { addstrdata1(ctxt, s) })
 	obj.Flagcount("v", "print link trace", &ctxt.Debugvlog)
-	obj.Flagfn1("linkmode", "set link `mode` (internal, external, auto)", setlinkmode)
 
 	obj.Flagparse(usage)
 
@@ -158,7 +158,8 @@ func Main() {
 		ctxt.Logf("HEADER = -H%d -T0x%x -D0x%x -R0x%x\n", Headtype, uint64(*FlagTextAddr), uint64(*FlagDataAddr), uint32(*FlagRound))
 	}
 
-	if Buildmode == BuildmodeShared {
+	switch Buildmode {
+	case BuildmodeShared:
 		for i := 0; i < flag.NArg(); i++ {
 			arg := flag.Arg(i)
 			parts := strings.SplitN(arg, "=", 2)
@@ -172,7 +173,10 @@ func Main() {
 			pkglistfornote = append(pkglistfornote, '\n')
 			addlibpath(ctxt, "command line", "command line", file, pkgpath, "")
 		}
-	} else {
+	case BuildmodePlugin:
+		pluginName := strings.TrimSuffix(filepath.Base(flag.Arg(0)), ".a")
+		addlibpath(ctxt, "command line", "command line", flag.Arg(0), pluginName, "")
+	default:
 		addlibpath(ctxt, "command line", "command line", flag.Arg(0), "main", "")
 	}
 	ctxt.loadlib()
@@ -206,7 +210,7 @@ func Main() {
 	ctxt.archive()
 	if ctxt.Debugvlog != 0 {
 		ctxt.Logf("%5.2f cpu time\n", obj.Cputime())
-		ctxt.Logf("%d symbols\n", len(ctxt.Allsym))
+		ctxt.Logf("%d symbols\n", len(ctxt.Syms.Allsym))
 		ctxt.Logf("%d liveness data\n", liveness)
 	}
 

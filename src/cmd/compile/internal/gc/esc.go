@@ -451,7 +451,7 @@ func escAnalyze(all []*Node, recursive bool) {
 	e.theSink.Op = ONAME
 	e.theSink.Orig = &e.theSink
 	e.theSink.Class = PEXTERN
-	e.theSink.Sym = Lookup(".sink")
+	e.theSink.Sym = lookup(".sink")
 	e.nodeEscState(&e.theSink).Escloopdepth = -1
 	e.recursive = recursive
 
@@ -697,7 +697,7 @@ func esc(e *EscState, n *Node, up *Node) {
 			// it is also a dereference, because it is implicitly
 			// dereferenced (see #12588)
 			if n.Type.IsArray() &&
-				!(n.Right.Type.IsPtr() && Eqtype(n.Right.Type.Elem(), n.Type)) {
+				!(n.Right.Type.IsPtr() && eqtype(n.Right.Type.Elem(), n.Type)) {
 				escassignNilWhy(e, n.List.Second(), n.Right, "range")
 			} else {
 				escassignDereference(e, n.List.Second(), n.Right, e.stepAssign(nil, n.List.Second(), n.Right, "range-deref"))
@@ -910,7 +910,7 @@ func esc(e *EscState, n *Node, up *Node) {
 			}
 			a := v.Name.Defn
 			if !v.Name.Byval {
-				a = Nod(OADDR, a, nil)
+				a = nod(OADDR, a, nil)
 				a.Lineno = v.Lineno
 				e.nodeEscState(a).Escloopdepth = e.loopdepth
 				a = typecheck(a, Erv)
@@ -1094,10 +1094,10 @@ func escassign(e *EscState, dst, src *Node, step *EscStep) {
 	case OCLOSURE:
 		// OCLOSURE is lowered to OPTRLIT,
 		// insert OADDR to account for the additional indirection.
-		a := Nod(OADDR, src, nil)
+		a := nod(OADDR, src, nil)
 		a.Lineno = src.Lineno
 		e.nodeEscState(a).Escloopdepth = e.nodeEscState(src).Escloopdepth
-		a.Type = Ptrto(src.Type)
+		a.Type = ptrto(src.Type)
 		escflows(e, dst, a, e.stepAssign(nil, originalDst, src, dstwhy))
 
 	// Flowing multiple returns to a single dst happens when
@@ -1336,7 +1336,7 @@ func escassignDereference(e *EscState, dst *Node, src *Node, step *EscStep) {
 // Because this is for purposes of escape accounting, not execution,
 // some semantically dubious node combinations are (currently) possible.
 func (e *EscState) addDereference(n *Node) *Node {
-	ind := Nod(OIND, n, nil)
+	ind := nod(OIND, n, nil)
 	e.nodeEscState(ind).Escloopdepth = e.nodeEscState(n).Escloopdepth
 	ind.Lineno = n.Lineno
 	t := n.Type
@@ -1389,10 +1389,10 @@ func initEscretval(e *EscState, n *Node, fntype *Type) {
 	nE := e.nodeEscState(n)
 	nE.Escretval.Set(nil) // Suspect this is not nil for indirect calls.
 	for _, t := range fntype.Results().Fields().Slice() {
-		src := Nod(ONAME, nil, nil)
+		src := nod(ONAME, nil, nil)
 		buf := fmt.Sprintf(".out%d", i)
 		i++
-		src.Sym = Lookup(buf)
+		src.Sym = lookup(buf)
 		src.Type = t.Type
 		src.Class = PAUTO
 		src.Name.Curfn = Curfn
@@ -1500,9 +1500,9 @@ func esccall(e *EscState, n *Node, up *Node) {
 				src = lls[0]
 				if n2.Isddd && !n.Isddd {
 					// Introduce ODDDARG node to represent ... allocation.
-					src = Nod(ODDDARG, nil, nil)
+					src = nod(ODDDARG, nil, nil)
 					arr := typArray(n2.Type.Elem(), int64(len(lls)))
-					src.Type = Ptrto(arr) // make pointer so it will be tracked
+					src.Type = ptrto(arr) // make pointer so it will be tracked
 					src.Lineno = n.Lineno
 					e.track(src)
 					n.Right = src
@@ -1558,15 +1558,15 @@ func esccall(e *EscState, n *Node, up *Node) {
 	note := ""
 	i := 0
 	lls := ll.Slice()
-	for t, it := IterFields(fntype.Params()); i < len(lls); i++ {
+	for t, it := iterFields(fntype.Params()); i < len(lls); i++ {
 		src = lls[i]
 		note = t.Note
 		if t.Isddd && !n.Isddd {
 			// Introduce ODDDARG node to represent ... allocation.
-			src = Nod(ODDDARG, nil, nil)
+			src = nod(ODDDARG, nil, nil)
 			src.Lineno = n.Lineno
 			arr := typArray(t.Type.Elem(), int64(len(lls)-i))
-			src.Type = Ptrto(arr) // make pointer so it will be tracked
+			src.Type = ptrto(arr) // make pointer so it will be tracked
 			e.track(src)
 			n.Right = src
 		}

@@ -59,8 +59,8 @@ func deadcode(ctxt *Link) {
 	d.init()
 	d.flood()
 
-	callSym := Linkrlookup(ctxt, "reflect.Value.Call", 0)
-	methSym := Linkrlookup(ctxt, "reflect.Value.Method", 0)
+	callSym := ctxt.Syms.ROLookup("reflect.Value.Call", 0)
+	methSym := ctxt.Syms.ROLookup("reflect.Value.Method", 0)
 	reflectSeen := false
 
 	if ctxt.DynlinkingGo() {
@@ -110,7 +110,7 @@ func deadcode(ctxt *Link) {
 	if Buildmode != BuildmodeShared {
 		// Keep a typelink or itablink if the symbol it points at is being kept.
 		// (When BuildmodeShared, always keep typelinks and itablinks.)
-		for _, s := range ctxt.Allsym {
+		for _, s := range ctxt.Syms.Allsym {
 			if strings.HasPrefix(s.Name, "go.typelink.") ||
 				strings.HasPrefix(s.Name, "go.itablink.") {
 				s.Attr.Set(AttrReachable, len(s.R) == 1 && s.R[0].Sym.Attr.Reachable())
@@ -232,7 +232,7 @@ func (d *deadcodepass) init() {
 	if Buildmode == BuildmodeShared {
 		// Mark all symbols defined in this library as reachable when
 		// building a shared library.
-		for _, s := range d.ctxt.Allsym {
+		for _, s := range d.ctxt.Syms.Allsym {
 			if s.Type != 0 && s.Type != obj.SDYNIMPORT {
 				d.mark(s, nil)
 			}
@@ -243,6 +243,16 @@ func (d *deadcodepass) init() {
 		names = append(names, *flagEntrySymbol)
 		if *FlagLinkshared && (Buildmode == BuildmodeExe || Buildmode == BuildmodePIE) {
 			names = append(names, "main.main", "main.init")
+		} else if Buildmode == BuildmodePlugin {
+			pluginInit := d.ctxt.Library[0].Pkg + ".init"
+			names = append(names, pluginInit, "go.plugin.tabs")
+
+			// We don't keep the go.plugin.exports symbol,
+			// but we do keep the symbols it refers to.
+			exports := d.ctxt.Syms.ROLookup("go.plugin.exports", 0)
+			for _, r := range exports.R {
+				d.mark(r.Sym, nil)
+			}
 		}
 		for _, name := range markextra {
 			names = append(names, name)
@@ -253,7 +263,7 @@ func (d *deadcodepass) init() {
 	}
 
 	for _, name := range names {
-		d.mark(Linkrlookup(d.ctxt, name, 0), nil)
+		d.mark(d.ctxt.Syms.ROLookup(name, 0), nil)
 	}
 }
 

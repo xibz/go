@@ -51,14 +51,14 @@ func gentext(ctxt *ld.Link) {
 	if !ctxt.DynlinkingGo() {
 		return
 	}
-	addmoduledata := ld.Linklookup(ctxt, "runtime.addmoduledata", 0)
+	addmoduledata := ctxt.Syms.Lookup("runtime.addmoduledata", 0)
 	if addmoduledata.Type == obj.STEXT {
 		// we're linking a module containing the runtime -> no need for
 		// an init function
 		return
 	}
 	addmoduledata.Attr |= ld.AttrReachable
-	initfunc := ld.Linklookup(ctxt, "go.link.addmoduledata", 0)
+	initfunc := ctxt.Syms.Lookup("go.link.addmoduledata", 0)
 	initfunc.Type = obj.STEXT
 	initfunc.Attr |= ld.AttrLocal
 	initfunc.Attr |= ld.AttrReachable
@@ -81,7 +81,7 @@ func gentext(ctxt *ld.Link) {
 	rel := ld.Addrel(initfunc)
 	rel.Off = int32(initfunc.Size)
 	rel.Siz = 4
-	rel.Sym = ld.Linklookup(ctxt, "runtime.addmoduledata", 0)
+	rel.Sym = ctxt.Syms.Lookup("runtime.addmoduledata", 0)
 	rel.Type = obj.R_CALL
 	rel.Variant = ld.RV_390_DBL
 	rel.Add = 2 + int64(rel.Siz)
@@ -91,7 +91,7 @@ func gentext(ctxt *ld.Link) {
 	ld.Adduint32(ctxt, initfunc, 0)
 
 	ctxt.Textp = append(ctxt.Textp, initfunc)
-	initarray_entry := ld.Linklookup(ctxt, "go.link.addmoduledatainit", 0)
+	initarray_entry := ctxt.Syms.Lookup("go.link.addmoduledatainit", 0)
 	initarray_entry.Attr |= ld.AttrLocal
 	initarray_entry.Attr |= ld.AttrReachable
 	initarray_entry.Type = obj.SINITARR
@@ -100,19 +100,18 @@ func gentext(ctxt *ld.Link) {
 
 func adddynrel(ctxt *ld.Link, s *ld.Symbol, r *ld.Reloc) bool {
 	targ := r.Sym
-	ctxt.Cursym = s
 
 	switch r.Type {
 	default:
 		if r.Type >= 256 {
-			ctxt.Diag("unexpected relocation type %d", r.Type)
+			ld.Errorf(s, "unexpected relocation type %d", r.Type)
 			return false
 		}
 
 		// Handle relocations found in ELF object files.
 	case 256 + ld.R_390_12,
 		256 + ld.R_390_GOT12:
-		ctxt.Diag("s390x 12-bit relocations have not been implemented (relocation type %d)", r.Type-256)
+		ld.Errorf(s, "s390x 12-bit relocations have not been implemented (relocation type %d)", r.Type-256)
 		return false
 
 	case 256 + ld.R_390_8,
@@ -120,7 +119,7 @@ func adddynrel(ctxt *ld.Link, s *ld.Symbol, r *ld.Reloc) bool {
 		256 + ld.R_390_32,
 		256 + ld.R_390_64:
 		if targ.Type == obj.SDYNIMPORT {
-			ctxt.Diag("unexpected R_390_nn relocation for dynamic symbol %s", targ.Name)
+			ld.Errorf(s, "unexpected R_390_nn relocation for dynamic symbol %s", targ.Name)
 		}
 		r.Type = obj.R_ADDR
 		return true
@@ -129,10 +128,10 @@ func adddynrel(ctxt *ld.Link, s *ld.Symbol, r *ld.Reloc) bool {
 		256 + ld.R_390_PC32,
 		256 + ld.R_390_PC64:
 		if targ.Type == obj.SDYNIMPORT {
-			ctxt.Diag("unexpected R_390_PCnn relocation for dynamic symbol %s", targ.Name)
+			ld.Errorf(s, "unexpected R_390_PCnn relocation for dynamic symbol %s", targ.Name)
 		}
 		if targ.Type == 0 || targ.Type == obj.SXREF {
-			ctxt.Diag("unknown symbol %s in pcrel", targ.Name)
+			ld.Errorf(s, "unknown symbol %s in pcrel", targ.Name)
 		}
 		r.Type = obj.R_PCREL
 		r.Add += int64(r.Siz)
@@ -141,7 +140,7 @@ func adddynrel(ctxt *ld.Link, s *ld.Symbol, r *ld.Reloc) bool {
 	case 256 + ld.R_390_GOT16,
 		256 + ld.R_390_GOT32,
 		256 + ld.R_390_GOT64:
-		ctxt.Diag("unimplemented S390x relocation: %v", r.Type-256)
+		ld.Errorf(s, "unimplemented S390x relocation: %v", r.Type-256)
 		return true
 
 	case 256 + ld.R_390_PLT16DBL,
@@ -151,7 +150,7 @@ func adddynrel(ctxt *ld.Link, s *ld.Symbol, r *ld.Reloc) bool {
 		r.Add += int64(r.Siz)
 		if targ.Type == obj.SDYNIMPORT {
 			addpltsym(ctxt, targ)
-			r.Sym = ld.Linklookup(ctxt, ".plt", 0)
+			r.Sym = ctxt.Syms.Lookup(".plt", 0)
 			r.Add += int64(targ.Plt)
 		}
 		return true
@@ -162,37 +161,37 @@ func adddynrel(ctxt *ld.Link, s *ld.Symbol, r *ld.Reloc) bool {
 		r.Add += int64(r.Siz)
 		if targ.Type == obj.SDYNIMPORT {
 			addpltsym(ctxt, targ)
-			r.Sym = ld.Linklookup(ctxt, ".plt", 0)
+			r.Sym = ctxt.Syms.Lookup(".plt", 0)
 			r.Add += int64(targ.Plt)
 		}
 		return true
 
 	case 256 + ld.R_390_COPY:
-		ctxt.Diag("unimplemented S390x relocation: %v", r.Type-256)
+		ld.Errorf(s, "unimplemented S390x relocation: %v", r.Type-256)
 		return false
 
 	case 256 + ld.R_390_GLOB_DAT:
-		ctxt.Diag("unimplemented S390x relocation: %v", r.Type-256)
+		ld.Errorf(s, "unimplemented S390x relocation: %v", r.Type-256)
 		return false
 
 	case 256 + ld.R_390_JMP_SLOT:
-		ctxt.Diag("unimplemented S390x relocation: %v", r.Type-256)
+		ld.Errorf(s, "unimplemented S390x relocation: %v", r.Type-256)
 		return false
 
 	case 256 + ld.R_390_RELATIVE:
-		ctxt.Diag("unimplemented S390x relocation: %v", r.Type-256)
+		ld.Errorf(s, "unimplemented S390x relocation: %v", r.Type-256)
 		return false
 
 	case 256 + ld.R_390_GOTOFF:
 		if targ.Type == obj.SDYNIMPORT {
-			ctxt.Diag("unexpected R_390_GOTOFF relocation for dynamic symbol %s", targ.Name)
+			ld.Errorf(s, "unexpected R_390_GOTOFF relocation for dynamic symbol %s", targ.Name)
 		}
 		r.Type = obj.R_GOTOFF
 		return true
 
 	case 256 + ld.R_390_GOTPC:
 		r.Type = obj.R_PCREL
-		r.Sym = ld.Linklookup(ctxt, ".got", 0)
+		r.Sym = ctxt.Syms.Lookup(".got", 0)
 		r.Add += int64(r.Siz)
 		return true
 
@@ -202,14 +201,14 @@ func adddynrel(ctxt *ld.Link, s *ld.Symbol, r *ld.Reloc) bool {
 		r.Variant = ld.RV_390_DBL
 		r.Add += int64(r.Siz)
 		if targ.Type == obj.SDYNIMPORT {
-			ctxt.Diag("unexpected R_390_PCnnDBL relocation for dynamic symbol %s", targ.Name)
+			ld.Errorf(s, "unexpected R_390_PCnnDBL relocation for dynamic symbol %s", targ.Name)
 		}
 		return true
 
 	case 256 + ld.R_390_GOTPCDBL:
 		r.Type = obj.R_PCREL
 		r.Variant = ld.RV_390_DBL
-		r.Sym = ld.Linklookup(ctxt, ".got", 0)
+		r.Sym = ctxt.Syms.Lookup(".got", 0)
 		r.Add += int64(r.Siz)
 		return true
 
@@ -218,7 +217,7 @@ func adddynrel(ctxt *ld.Link, s *ld.Symbol, r *ld.Reloc) bool {
 
 		r.Type = obj.R_PCREL
 		r.Variant = ld.RV_390_DBL
-		r.Sym = ld.Linklookup(ctxt, ".got", 0)
+		r.Sym = ctxt.Syms.Lookup(".got", 0)
 		r.Add += int64(targ.Got)
 		r.Add += int64(r.Siz)
 		return true
@@ -331,8 +330,8 @@ func elfreloc1(ctxt *ld.Link, r *ld.Reloc, sectoff int64) int {
 }
 
 func elfsetupplt(ctxt *ld.Link) {
-	plt := ld.Linklookup(ctxt, ".plt", 0)
-	got := ld.Linklookup(ctxt, ".got", 0)
+	plt := ctxt.Syms.Lookup(".plt", 0)
+	got := ctxt.Syms.Lookup(".got", 0)
 	if plt.Size == 0 {
 		// stg     %r1,56(%r15)
 		ld.Adduint8(ctxt, plt, 0xe3)
@@ -373,14 +372,14 @@ func elfsetupplt(ctxt *ld.Link) {
 		ld.Adduint8(ctxt, plt, 0x00)
 
 		// assume got->size == 0 too
-		ld.Addaddrplus(ctxt, got, ld.Linklookup(ctxt, ".dynamic", 0), 0)
+		ld.Addaddrplus(ctxt, got, ctxt.Syms.Lookup(".dynamic", 0), 0)
 
 		ld.Adduint64(ctxt, got, 0)
 		ld.Adduint64(ctxt, got, 0)
 	}
 }
 
-func machoreloc1(ctxt *ld.Link, r *ld.Reloc, sectoff int64) int {
+func machoreloc1(s *ld.Symbol, r *ld.Reloc, sectoff int64) int {
 	return -1
 }
 
@@ -395,7 +394,7 @@ func archreloc(ctxt *ld.Link, r *ld.Reloc, s *ld.Symbol, val *int64) int {
 		return 0
 
 	case obj.R_GOTOFF:
-		*val = ld.Symaddr(ctxt, r.Sym) + r.Add - ld.Symaddr(ctxt, ld.Linklookup(ctxt, ".got", 0))
+		*val = ld.Symaddr(r.Sym) + r.Add - ld.Symaddr(ctxt.Syms.Lookup(".got", 0))
 		return 0
 	}
 
@@ -405,7 +404,7 @@ func archreloc(ctxt *ld.Link, r *ld.Reloc, s *ld.Symbol, val *int64) int {
 func archrelocvariant(ctxt *ld.Link, r *ld.Reloc, s *ld.Symbol, t int64) int64 {
 	switch r.Variant & ld.RV_TYPE_MASK {
 	default:
-		ctxt.Diag("unexpected relocation variant %d", r.Variant)
+		ld.Errorf(s, "unexpected relocation variant %d", r.Variant)
 		return t
 
 	case ld.RV_NONE:
@@ -413,7 +412,7 @@ func archrelocvariant(ctxt *ld.Link, r *ld.Reloc, s *ld.Symbol, t int64) int64 {
 
 	case ld.RV_390_DBL:
 		if (t & 1) != 0 {
-			ctxt.Diag("%s+%v is not 2-byte aligned", r.Sym.Name, r.Sym.Value)
+			ld.Errorf(s, "%s+%v is not 2-byte aligned", r.Sym.Name, r.Sym.Value)
 		}
 		return t >> 1
 	}
@@ -427,9 +426,9 @@ func addpltsym(ctxt *ld.Link, s *ld.Symbol) {
 	ld.Adddynsym(ctxt, s)
 
 	if ld.Iself {
-		plt := ld.Linklookup(ctxt, ".plt", 0)
-		got := ld.Linklookup(ctxt, ".got", 0)
-		rela := ld.Linklookup(ctxt, ".rela.plt", 0)
+		plt := ctxt.Syms.Lookup(".plt", 0)
+		got := ctxt.Syms.Lookup(".got", 0)
+		rela := ctxt.Syms.Lookup(".rela.plt", 0)
 		if plt.Size == 0 {
 			elfsetupplt(ctxt)
 		}
@@ -478,7 +477,7 @@ func addpltsym(ctxt *ld.Link, s *ld.Symbol) {
 		s.Plt = int32(plt.Size - 32)
 
 	} else {
-		ctxt.Diag("addpltsym: unsupported binary format")
+		ld.Errorf(s, "addpltsym: unsupported binary format")
 	}
 }
 
@@ -488,17 +487,17 @@ func addgotsym(ctxt *ld.Link, s *ld.Symbol) {
 	}
 
 	ld.Adddynsym(ctxt, s)
-	got := ld.Linklookup(ctxt, ".got", 0)
+	got := ctxt.Syms.Lookup(".got", 0)
 	s.Got = int32(got.Size)
 	ld.Adduint64(ctxt, got, 0)
 
 	if ld.Iself {
-		rela := ld.Linklookup(ctxt, ".rela", 0)
+		rela := ctxt.Syms.Lookup(".rela", 0)
 		ld.Addaddrplus(ctxt, rela, got, int64(s.Got))
 		ld.Adduint64(ctxt, rela, ld.ELF64_R_INFO(uint32(s.Dynid), ld.R_390_GLOB_DAT))
 		ld.Adduint64(ctxt, rela, 0)
 	} else {
-		ctxt.Diag("addgotsym: unsupported binary format")
+		ld.Errorf(s, "addgotsym: unsupported binary format")
 	}
 }
 
@@ -508,7 +507,7 @@ func asmb(ctxt *ld.Link) {
 	}
 
 	if ld.Iself {
-		ld.Asmbelfsetup(ctxt)
+		ld.Asmbelfsetup()
 	}
 
 	sect := ld.Segtext.Sect
@@ -551,7 +550,7 @@ func asmb(ctxt *ld.Link) {
 	symo := uint32(0)
 	if !*ld.FlagS {
 		if !ld.Iself {
-			ctxt.Diag("unsupported executable format")
+			ld.Errorf(nil, "unsupported executable format")
 		}
 		if ctxt.Debugvlog != 0 {
 			ctxt.Logf("%5.2f sym\n", obj.Cputime())
@@ -576,14 +575,13 @@ func asmb(ctxt *ld.Link) {
 		}
 	}
 
-	ctxt.Cursym = nil
 	if ctxt.Debugvlog != 0 {
 		ctxt.Logf("%5.2f header\n", obj.Cputime())
 	}
 	ld.Cseek(0)
 	switch ld.Headtype {
 	default:
-		ctxt.Diag("unsupported operating system")
+		ld.Errorf(nil, "unsupported operating system")
 	case obj.Hlinux:
 		ld.Asmbelf(ctxt, int64(symo))
 	}

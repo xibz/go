@@ -158,9 +158,7 @@ type Addr struct {
 	Type   AddrType
 	Name   int8
 	Class  int8
-	Etype  uint8
 	Offset int64
-	Width  int64
 	Sym    *LSym
 	Gotype *LSym
 
@@ -231,8 +229,6 @@ type Prog struct {
 	Tt     uint8
 	Isize  uint8 // size of the instruction in bytes (x86 only)
 	Mode   int8
-
-	Info ProgInfo
 }
 
 // From3Type returns From3.Type, or TYPE_NONE when From3 is nil.
@@ -251,17 +247,6 @@ func (p *Prog) From3Offset() int64 {
 	return p.From3.Offset
 }
 
-// ProgInfo holds information about the instruction for use
-// by clients such as the compiler. The exact meaning of this
-// data is up to the client and is not interpreted by the cmd/internal/obj/... packages.
-type ProgInfo struct {
-	_        struct{} // to prevent unkeyed literals. Trailing zero-sized field will take space.
-	Flags    uint32   // flag bits
-	Reguse   uint64   // registers implicitly used by this instruction
-	Regset   uint64   // registers implicitly set by this instruction
-	Regindex uint64   // registers used by addressing mode
-}
-
 // An As denotes an assembler opcode.
 // There are some portable opcodes, declared here in package obj,
 // that are common to all architectures.
@@ -273,12 +258,10 @@ type As int16
 const (
 	AXXX As = iota
 	ACALL
-	ACHECKNIL
 	ADUFFCOPY
 	ADUFFZERO
 	AEND
 	AFUNCDATA
-	AGLOBL
 	AJMP
 	ANOP
 	APCDATA
@@ -677,13 +660,10 @@ type Link struct {
 	Flag_optimize bool
 	Bso           *bufio.Writer
 	Pathname      string
-	Goroot        string
-	Goroot_final  string
 	Hash          map[SymVer]*LSym
 	LineHist      LineHist
 	Imports       []string
-	Plist         *Plist
-	Plast         *Plist
+	Plists        []*Plist
 	Sym_div       *LSym
 	Sym_divu      *LSym
 	Sym_mod       *LSym
@@ -708,8 +688,6 @@ type Link struct {
 	Mode          int
 	Cursym        *LSym
 	Version       int
-	Textp         *LSym
-	Etextp        *LSym
 	Errors        int
 
 	Framepointer_enabled bool

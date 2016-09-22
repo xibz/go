@@ -143,7 +143,7 @@ func (p *Prog) String() string {
 		sep = ", "
 	}
 	if p.From3Type() != TYPE_NONE {
-		if p.From3.Type == TYPE_CONST && (p.As == ATEXT || p.As == AGLOBL) {
+		if p.From3.Type == TYPE_CONST && p.As == ATEXT {
 			// Special case - omit $.
 			fmt.Fprintf(&buf, "%s%d", sep, p.From3.Offset)
 		} else if quadOpAmd64 {
@@ -472,12 +472,10 @@ func (a As) String() string {
 var Anames = []string{
 	"XXX",
 	"CALL",
-	"CHECKNIL",
 	"DUFFCOPY",
 	"DUFFZERO",
 	"END",
 	"FUNCDATA",
-	"GLOBL",
 	"JMP",
 	"NOP",
 	"PCDATA",

@@ -592,7 +592,7 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 		if ln.Op == ONAME {
 			ln.Name.Inlvar = typecheck(inlvar(ln), Erv)
 			if ln.Class == PPARAM || ln.Name.Param.Stackcopy != nil && ln.Name.Param.Stackcopy.Class == PPARAM {
-				ninit.Append(Nod(ODCL, ln.Name.Inlvar, nil))
+				ninit.Append(nod(ODCL, ln.Name.Inlvar, nil))
 			}
 		}
 	}
@@ -610,7 +610,7 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 			i++
 		}
 
-		ninit.Append(Nod(ODCL, m, nil))
+		ninit.Append(nod(ODCL, m, nil))
 		retvars = append(retvars, m)
 	}
 
@@ -628,7 +628,7 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 		if t == nil {
 			Fatalf("method call unknown receiver type: %+v", n)
 		}
-		as := Nod(OAS, tinlvar(t), n.Left.Left)
+		as := nod(OAS, tinlvar(t), n.Left.Left)
 		if as != nil {
 			as = typecheck(as, Etop)
 			ninit.Append(as)
@@ -673,7 +673,7 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 	}
 
 	// assign arguments to the parameters' temp names
-	as := Nod(OAS2, nil, nil)
+	as := nod(OAS2, nil, nil)
 
 	as.Rlist.Set(n.List.Slice())
 	li := 0
@@ -722,7 +722,7 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 		}
 	} else {
 		// match arguments except final variadic (unless the call is dotted itself)
-		t, it := IterFields(fn.Type.Params())
+		t, it := iterFields(fn.Type.Params())
 		for t != nil {
 			if li >= n.List.Len() {
 				break
@@ -763,15 +763,15 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 
 	// turn the variadic args into a slice.
 	if variadic {
-		as = Nod(OAS, vararg, nil)
+		as = nod(OAS, vararg, nil)
 		if varargcount == 0 {
 			as.Right = nodnil()
 			as.Right.Type = varargtype
 		} else {
 			vararrtype := typArray(varargtype.Elem(), int64(varargcount))
-			as.Right = Nod(OCOMPLIT, nil, typenod(vararrtype))
+			as.Right = nod(OCOMPLIT, nil, typenod(vararrtype))
 			as.Right.List.Set(varargs)
-			as.Right = Nod(OSLICE, as.Right, nil)
+			as.Right = nod(OSLICE, as.Right, nil)
 		}
 
 		as = typecheck(as, Etop)
@@ -780,7 +780,7 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 
 	// zero the outparams
 	for _, n := range retvars {
-		as = Nod(OAS, n, nil)
+		as = nod(OAS, n, nil)
 		as = typecheck(as, Etop)
 		ninit.Append(as)
 	}
@@ -797,7 +797,7 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 
 	body := subst.list(fn.Func.Inl)
 
-	lab := Nod(OLABEL, retlabel, nil)
+	lab := nod(OLABEL, retlabel, nil)
 	lab.Used = true // avoid 'not used' when function doesn't have return
 	body = append(body, lab)
 
@@ -805,7 +805,7 @@ func mkinlcall1(n *Node, fn *Node, isddd bool) *Node {
 
 	//dumplist("ninit post", ninit);
 
-	call := Nod(OINLCALL, nil, nil)
+	call := nod(OINLCALL, nil, nil)
 
 	call.Ninit.Set(ninit.Slice())
 	call.Nbody.Set(body)
@@ -870,7 +870,7 @@ func inlvar(var_ *Node) *Node {
 
 // Synthesize a variable to store the inlined function's results in.
 func retvar(t *Field, i int) *Node {
-	n := newname(LookupN("~r", i))
+	n := newname(lookupN("~r", i))
 	n.Type = t.Type
 	n.Class = PAUTO
 	n.Used = true
@@ -882,7 +882,7 @@ func retvar(t *Field, i int) *Node {
 // Synthesize a variable to store the inlined function's arguments
 // when they come from a multiple return call.
 func argvar(t *Type, i int) *Node {
-	n := newname(LookupN("~arg", i))
+	n := newname(lookupN("~arg", i))
 	n.Type = t.Elem()
 	n.Class = PAUTO
 	n.Used = true
@@ -940,12 +940,12 @@ func (subst *inlsubst) node(n *Node) *Node {
 
 	//		dump("Return before substitution", n);
 	case ORETURN:
-		m := Nod(OGOTO, subst.retlabel, nil)
+		m := nod(OGOTO, subst.retlabel, nil)
 
 		m.Ninit.Set(subst.list(n.Ninit))
 
 		if len(subst.retvars) != 0 && n.List.Len() != 0 {
-			as := Nod(OAS2, nil, nil)
+			as := nod(OAS2, nil, nil)
 
 			// Make a shallow copy of retvars.
 			// Otherwise OINLCALL.Rlist will be the same list,
@@ -965,15 +965,15 @@ func (subst *inlsubst) node(n *Node) *Node {
 		return m
 
 	case OGOTO, OLABEL:
-		m := Nod(OXXX, nil, nil)
+		m := nod(OXXX, nil, nil)
 		*m = *n
 		m.Ninit.Set(nil)
 		p := fmt.Sprintf("%s·%d", n.Left.Sym.Name, inlgen)
-		m.Left = newname(Lookup(p))
+		m.Left = newname(lookup(p))
 
 		return m
 	default:
-		m := Nod(OXXX, nil, nil)
+		m := nod(OXXX, nil, nil)
 		*m = *n
 		m.Ninit.Set(nil)
 

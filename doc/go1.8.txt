@@ -8,10 +8,11 @@ go: mobile pkg dir change, recommend using go list in scripts (CL 24930, CL 2792
 
 Ports:
 
-
+dragonfly: go1.8 requires DragonFly BSD 4.4.4 or above (CL 29491)
 
 API additions and behavior changes:
 
+cmd/compile: args no longer live until end of function - use runtime.KeepAlive instead (CL 28310)
 crypto/tls: set Conn.ConnectionState.ServerName unconditionally (CL 22862)
 crypto/tls: support AES-128-CBC cipher suites with SHA-256 (CL 27315)
 crypto/tls: don't generate random ticket keys if already set (CL 27317)

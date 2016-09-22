@@ -21,7 +21,7 @@ func offmod(t *Type) {
 		f.Offset = int64(o)
 		o += int32(Widthptr)
 		if int64(o) >= Thearch.MAXWIDTH {
-			Yyerror("interface too large")
+			yyerror("interface too large")
 			o = int32(Widthptr)
 		}
 	}
@@ -75,7 +75,7 @@ func widstruct(errtype *Type, t *Type, o int64, flag int) int64 {
 		}
 		o += w
 		if o >= Thearch.MAXWIDTH {
-			Yyerror("type %L too large", errtype)
+			yyerror("type %L too large", errtype)
 			o = 8 // small but nonzero
 		}
 	}
@@ -148,8 +148,8 @@ func dowidth(t *Type) {
 
 	// simtype == 0 during bootstrap
 	default:
-		if Simtype[t.Etype] != 0 {
-			et = Simtype[t.Etype]
+		if simtype[t.Etype] != 0 {
+			et = simtype[t.Etype]
 		}
 	}
 
@@ -211,7 +211,7 @@ func dowidth(t *Type) {
 		t1 := t.ChanArgs()
 		dowidth(t1) // just in case
 		if t1.Elem().Width >= 1<<16 {
-			Yyerror("channel element type too large (>64kB)")
+			yyerror("channel element type too large (>64kB)")
 		}
 		t.Width = 1
 
@@ -222,7 +222,7 @@ func dowidth(t *Type) {
 
 	case TFORW: // should have been filled in
 		if !t.Broke {
-			Yyerror("invalid recursive type %v", t)
+			yyerror("invalid recursive type %v", t)
 		}
 		w = 1 // anything will do
 
@@ -246,7 +246,7 @@ func dowidth(t *Type) {
 		}
 		if t.isDDDArray() {
 			if !t.Broke {
-				Yyerror("use of [...] array outside of array literal")
+				yyerror("use of [...] array outside of array literal")
 				t.Broke = true
 			}
 			break
@@ -256,7 +256,7 @@ func dowidth(t *Type) {
 		if t.Elem().Width != 0 {
 			cap := (uint64(Thearch.MAXWIDTH) - 1) / uint64(t.Elem().Width)
 			if uint64(t.NumElem()) > cap {
-				Yyerror("type %L larger than address space", t)
+				yyerror("type %L larger than address space", t)
 			}
 		}
 		w = t.NumElem() * t.Elem().Width
@@ -298,7 +298,7 @@ func dowidth(t *Type) {
 	}
 
 	if Widthptr == 4 && w != int64(int32(w)) {
-		Yyerror("type %v too large", t)
+		yyerror("type %v too large", t)
 	}
 
 	t.Width = w
@@ -380,23 +380,4 @@ func resumecheckwidth() {
 	}
 
 	defercalc = 0
-}
-
-// compute total size of f's in/out arguments.
-func Argsize(t *Type) int {
-	var w int64
-
-	for _, p := range recvsParamsResults {
-		for _, f := range p(t).Fields().Slice() {
-			if x := f.End(); x > w {
-				w = x
-			}
-		}
-	}
-
-	w = Rnd(w, int64(Widthptr))
-	if int64(int(w)) != w {
-		Fatalf("argsize too big")
-	}
-	return int(w)
 }
