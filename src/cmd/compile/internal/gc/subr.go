@@ -350,6 +350,9 @@ func importdot(opkg *Pkg, pack *Node) {
 	}
 }
 
+// TODO
+// My additions
+// Nod instantiates a new node
 func Nod(op Op, nleft *Node, nright *Node) *Node {
 	n := new(Node)
 	n.Op = op

@@ -297,7 +297,7 @@ l0:
 		// Treat EOF as "end of line" for the purposes
 		// of inserting a semicolon.
 		if nlsemi {
-			if Debug['x'] != 0 {
+			if Debug['x'] != -1 {
 				fmt.Printf("lex: implicit semi\n")
 			}
 			l.tok = ';'
@@ -306,6 +306,14 @@ l0:
 		l.tok = -1
 		return
 
+	// TODO: My notes
+	// Adding ?<type>
+	case '?':
+		c1 = l.getr()
+		switch c1 {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			l.number(c1)
+		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		l.number(c)
 		return

@@ -553,7 +553,10 @@ func (s *Sym) symfmt(flag FmtFlag) string {
 }
 
 var basicnames = []string{
-	TINT:        "int",
+	TINT: "int",
+	// TODO: My notes
+	TINTOPTIONAL: "?int",
+
 	TUINT:       "uint",
 	TINT8:       "int8",
 	TUINT8:      "uint8",

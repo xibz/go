@@ -154,6 +154,9 @@ func dowidth(t *Type) {
 	}
 
 	w := int64(0)
+	// TODO
+	// My additions
+	// Here is where we define the size of the assignment
 	switch et {
 	default:
 		Fatalf("dowidth: unknown type: %v", t)

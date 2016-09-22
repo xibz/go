@@ -227,6 +227,9 @@ func addvar(n *Node, t *Type, ctxt Class) {
 	n.Type = t
 }
 
+// TODO
+// My additions
+// This is where assignment happens with arrays?
 // declare variables from grammar
 // new_name_list (type | [type] = expr_list)
 func variter(vl []*Node, t *Node, el []*Node) []*Node {
@@ -234,6 +237,7 @@ func variter(vl []*Node, t *Node, el []*Node) []*Node {
 	doexpr := len(el) > 0
 
 	if len(el) == 1 && len(vl) > 1 {
+		println("HERE")
 		e := el[0]
 		as2 := Nod(OAS2, nil, nil)
 		as2.List.Set(vl)

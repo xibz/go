@@ -1107,6 +1107,8 @@ opswitch:
 		n = typecheck(n, Erv)
 		n = walkexpr(n, init)
 
+		// TODO: My notes:
+		// This is where architecture conversion of types occur
 	case OCONV, OCONVNOP:
 		if Thearch.LinkArch.Family == sys.ARM {
 			if n.Left.Type.IsFloat() {
